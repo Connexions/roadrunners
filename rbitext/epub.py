@@ -11,7 +11,7 @@ Public License Version 2.1 (LGPL).  See LICENSE.txt for details.
 import os
 import sys
 import subprocess
-##import shutil
+import shutil
 import tempfile
 import jsonpickle
 
@@ -108,6 +108,6 @@ def make_epub(message, set_status, settings={}):
     print(result_filepath)
 
     # Remove the temp directory.
-    ##shutils.rmtree(build_dir)
+    shutil.rmtree(build_dir)
 
     set_status('Done')
