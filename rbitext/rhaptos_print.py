@@ -13,6 +13,7 @@ Public License Version 2.1 (LGPL).  See LICENSE.txt for details.
 """
 import os
 import subprocess
+import shutil
 import jsonpickle
 
 
@@ -22,11 +23,17 @@ def make_print(message, set_status, settings={}):
 
     Available settings:
 
+    - **output-dir** - Directory where the produced file is stuck.
     - **python** - Maps to the make file's PYTHON variable
     - **print-dir** - Maps to the make file's PRINT_DIR variable
     - **host** - Maps to the make file's HOST variable
 
     """
+    output_dir = settings['output-dir']
+    python_executable = settings.get('python', None)
+    print_dir = settings.get('print-dir', None)
+    host = settings.get('host', None)
+
     build_request = jsonpickle.decode(message)
     build_request.stamp_request()
     timestamp = build_request.get_buildstamp()
@@ -34,12 +41,13 @@ def make_print(message, set_status, settings={}):
     set_status('Building', status_message)
 
     content_id = build_request.get_package()
-    command = ['make', '{0}.pdf'.format(content_id)]
+    pdf_filename = '{0}.pdf'.format(content_id)
+    command = ['make', pdf_filename]
     # Override various make variables.
     overrides = [
-        settings.get('python') and "PYTHON=" + settings['python'] or None,
-        settings.get('print-dir') and "PRINT_DIR=" + settings['print-dir'] or None,
-        settings.get('host') and "HOST=" + settings['host'] or None,
+        python_executable and "PYTHON=" + python_executable or None,
+        print_dir and "PRINT_DIR=" + print_dir or None,
+        host and "HOST=" + host or None,
         "COLLECTION_VERSION=" + build_request.job.packageinstance.package.version,
         ]
     overrides = [c for c in overrides if c]  # Remove the None values.
@@ -53,4 +61,12 @@ def make_print(message, set_status, settings={}):
     if process.returncode < 0:
         # Something went wrong...
         set_status('Failed', stderr)
-    return ""
+        return
+    else:
+        msg = "PDF created, moving contents to final destination..."
+        set_status('Building', msg)
+
+    # Move the resulting document to the defined location.
+    shutil.copy2(os.path.join(cwd, pdf_filename), output_dir)
+
+    set_status('Done')
