@@ -44,7 +44,7 @@ def make_print(message, set_status, settings={}):
     # Clean up the 'shared' environment before trying to build.
     # FIXME This is a 'shared' environment, which means we can't run
     #       more than one job at a time.
-    process = subprocess.Popen(['make', 'clean'],
+    process = subprocess.Popen(['make', 'clear'],
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                cwd=cwd)
     stdout, stderr = process.communicate()
