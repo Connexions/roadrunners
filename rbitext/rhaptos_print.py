@@ -12,6 +12,7 @@ This software is subject to the provisions of the GNU Lesser General
 Public License Version 2.1 (LGPL).  See LICENSE.txt for details.
 """
 import os
+import sys
 import subprocess
 import shutil
 import jsonpickle
@@ -30,9 +31,10 @@ def make_print(message, set_status, settings={}):
 
     """
     output_dir = settings['output-dir']
-    python_executable = settings.get('python', None)
+    python_executable = settings.get('python', sys.executable)
     print_dir = settings.get('print-dir', None)
     host = settings.get('host', None)
+    cwd = os.path.abspath(settings.get('print-dir', os.curdir))
 
     build_request = jsonpickle.decode(message)
     build_request.stamp_request()
@@ -40,6 +42,21 @@ def make_print(message, set_status, settings={}):
     status_message = "Starting job, timestamp: {0}".format(timestamp)
     set_status('Building', status_message)
 
+    # Clean up the 'shared' environment before trying to build.
+    # FIXME This is a 'shared' environment, which means we can't run
+    #       more than one job at a time.
+    process = subprocess.Popen(['make', 'clean'],
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               cwd=cwd)
+    stdout, stderr = process.communicate()
+    # At this time we don't really care if cleanup worked or not.
+    # if process.returncode != 0:
+    #     # Something went wrong...
+    #     message = '\n\n'.join(["Cleanup failed:", stderr, stdout])
+    #     set_status('Failed', message)
+    #     return
+
+    # Run the makefile from RhaptosPrint that will create the PDF
     content_id = build_request.get_package()
     pdf_filename = '{0}.pdf'.format(content_id)
     command = ['make', pdf_filename]
@@ -53,12 +70,11 @@ def make_print(message, set_status, settings={}):
     overrides = [c for c in overrides if c]  # Remove the None values.
     command.extend(overrides)
 
-    cwd = os.path.abspath(settings.get('print-dir', os.curdir))
     process = subprocess.Popen(command,
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                cwd=cwd)
     stdout, stderr = process.communicate()
-    if process.returncode < 0:
+    if process.returncode != 0:
         # Something went wrong...
         set_status('Failed', stderr)
         return
