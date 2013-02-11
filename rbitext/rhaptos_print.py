@@ -33,7 +33,6 @@ def make_print(message, set_status, settings={}):
     output_dir = settings['output-dir']
     python_executable = settings.get('python', sys.executable)
     print_dir = settings.get('print-dir', None)
-    host = settings.get('host', None)
     cwd = os.path.abspath(settings.get('print-dir', os.curdir))
 
     build_request = jsonpickle.decode(message)
@@ -61,6 +60,8 @@ def make_print(message, set_status, settings={}):
     pdf_filename = '{0}.pdf'.format(content_id)
     command = ['make', pdf_filename]
     # Override various make variables.
+    host = build_request.transport.uri
+    host = '/'.join(host.split('/')[:3])  # just the {protocol}://{hostname}
     overrides = [
         python_executable and "PYTHON=" + python_executable or None,
         print_dir and "PRINT_DIR=" + print_dir or None,
