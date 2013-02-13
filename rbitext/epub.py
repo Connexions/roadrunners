@@ -36,8 +36,8 @@ def _get_completezip(build_request, settings, working_dir):
         raise RuntimeError(stdout + "\n\n" + stderr)
     # Unpack the zip
     process = subprocess.Popen(['unzip', filename],
-                              stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                              cwd=working_dir)
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               cwd=working_dir)
     stdout, stderr = process.communicate()
     if process.returncode != 0:
         raise RuntimeError(stdout + "\n\n" + stderr)
@@ -77,10 +77,18 @@ def make_epub(message, set_status, settings={}):
     print('-'*80 + '\n' + build_dir + '\n' + '-'*80)
 
     collection_dir = _get_completezip(build_request, settings, build_dir)
+    # FIXME We need to grab the version from the unpacked directory
+    #       name because 'latest' is only a symbolic name that will
+    #       not be used in the resulting filename.
+    version = build_request.get_version()
+    if version == 'latest':
+        # Using the unpacked complete zip filename, with the structure
+        #   <id>_<version>_complete, we can parse the version.
+        version = collection_dir.split('_')[1]
 
     build_script = os.path.join(oerexports_dir, 'content2epub.py')
     result_filename = '{0}-{1}.epub'.format(build_request.get_package(),
-                                            build_request.get_version())
+                                            version)
     result_filepath = os.path.join(build_dir, result_filename)
     command = [python_executable, build_script, collection_dir,
                # The follow are not optional, values must be supplied.
@@ -105,7 +113,8 @@ def make_epub(message, set_status, settings={}):
 
     # Move the file to it's final destination.
     shutil.copy2(result_filepath, output_dir)
-    print(result_filepath)
+    output_filepath = os.path.join(output_dir, result_filename)
+    set_status('Building', "Placing file a location: " + output_filepath)
 
     # Remove the temp directory.
     shutil.rmtree(build_dir)
