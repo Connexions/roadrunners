@@ -15,42 +15,8 @@ import shutil
 import tempfile
 import jsonpickle
 
-
-def _get_completezip(build_request, settings, working_dir):
-    """"Acquire the collection data from a (Plone based) Connexions
-    repository in the completezip format.
-
-    """
-    # Download the completezip
-    pkg = build_request.get_package()
-    version = build_request.get_version()
-
-    filename = "{0}-{1}.complete.zip".format(pkg, version)
-    url = '{0}/content/{1}/{2}/complete'.format(build_request.transport.uri,
-                                                pkg, version)
-    process = subprocess.Popen(['wget', '-O', filename, url],
-                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                               cwd=working_dir)
-    stdout, stderr = process.communicate()
-    if process.returncode != 0:
-        raise RuntimeError(stdout + "\n\n" + stderr)
-    # Unpack the zip
-    process = subprocess.Popen(['unzip', filename],
-                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                               cwd=working_dir)
-    stdout, stderr = process.communicate()
-    if process.returncode != 0:
-        raise RuntimeError(stdout + "\n\n" + stderr)
-
-    # The unpacked directory name does not always match the zip file
-    #   name. In addition, the version may differ if 'latest' is used.
-    #   Therefore, we must discover the name by looking at the
-    #   contents of the directory. This is simple enough, because
-    #   there should only ever be two items in the directory at this
-    #   time.
-    unpacked_filename = [d for d in os.listdir(working_dir)
-                         if not d.endswith('.zip')][0]
-    return unpacked_filename
+from . import utils
+from .utils import logger
 
 
 def make_epub(message, set_status, settings={}):
@@ -67,25 +33,32 @@ def make_epub(message, set_status, settings={}):
     oerexports_dir = settings['oer.exports-dir']
     output_dir = settings['output-dir']
 
+    # Start the building sequence by updating the build's status.
     build_request = jsonpickle.decode(message)
     build_request.stamp_request()
     timestamp = build_request.get_buildstamp()
     status_message = "Starting job, timestamp: {0}".format(timestamp)
     set_status('Building', status_message)
 
+    # Create a temporary directory to work in...
     build_dir = tempfile.mkdtemp()
-    print('-'*80 + '\n' + build_dir + '\n' + '-'*80)
+    logger.debug("Working in '{0}'.".format(build_dir))
 
-    collection_dir = _get_completezip(build_request, settings, build_dir)
+    # Acquire the collection's data in a collection directory format.
+    pkg_name = build_request.get_package()
+    version = build_request.get_version()
+    base_uri = build_request.transport.uri
+    collection_dir = utils.get_completezip(pkg_name, version, base_uri,
+                                           build_dir)
     # FIXME We need to grab the version from the unpacked directory
     #       name because 'latest' is only a symbolic name that will
     #       not be used in the resulting filename.
-    version = build_request.get_version()
     if version == 'latest':
         # Using the unpacked complete zip filename, with the structure
         #   <id>_<version>_complete, we can parse the version.
         version = collection_dir.split('_')[1]
 
+    # Run the oer.exports script against the collection data.
     build_script = os.path.join(oerexports_dir, 'content2epub.py')
     result_filename = '{0}-{1}.epub'.format(build_request.get_package(),
                                             version)
@@ -97,8 +70,7 @@ def make_epub(message, set_status, settings={}):
                '-e', os.path.join(oerexports_dir, 'xsl', 'dbk2epub.xsl'),
                '-o', result_filepath,
                ]
-
-    print(' '.join(command))
+    set_status('Building', "Running: " + ' '.join(command))
     process = subprocess.Popen(command,
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                cwd=build_dir)
@@ -116,7 +88,7 @@ def make_epub(message, set_status, settings={}):
     output_filepath = os.path.join(output_dir, result_filename)
     set_status('Building', "Placing file a location: " + output_filepath)
 
-    # Remove the temp directory.
+    # Remove the temporary build directory
     shutil.rmtree(build_dir)
 
     set_status('Done')
