@@ -10,6 +10,8 @@ install_requirements = [
     'jsonpickle',
     ]
 test_requirements = []
+# These requirements are specifically for the legacy module.
+legacy_requirements = ['requests']
 
 setup(
     name='rbit-ext',
@@ -25,6 +27,7 @@ setup(
     install_requires=install_requirements,
     extras_require={
         'tests': test_requirements,
+        'legacy': legacy_requirements,
         },
     entry_points = """\
     """,
