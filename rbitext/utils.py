@@ -11,9 +11,27 @@ Public License Version 2.1 (LGPL).  See LICENSE.txt for details.
 import os
 import logging
 import subprocess
-
+import requests
 
 logger = logging.getLogger('rbit-ext')
+
+def unpack_zip(file, working_dir=None):
+    """Unpacks a zip file and returns the contents file path."""
+    # Get a listing of the current directory if we are working in
+    #   one. This is used later to differentiate the unpacked contents
+    #   from those that were previously there.
+    directory_listing = os.listdir(working_dir)
+
+    command = ['unzip', file]
+    process = subprocess.Popen(command,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               cwd=working_dir)
+    logger.debug("Running: " + ' '.join(command))
+    stdout, stderr = process.communicate()
+    if process.returncode != 0:
+        raise RuntimeError(stdout + "\n\n" + stderr)
+
+    return [x for x in os.listdir(working_dir) if x not in directory_listing]
 
 def get_completezip(pkg_name, version, base_uri, working_dir):
     """"Acquire the collection data from a (Plone based) Connexions
@@ -27,31 +45,16 @@ def get_completezip(pkg_name, version, base_uri, working_dir):
     url = '{0}/content/{1}/{2}/complete'.format(base_uri, pkg_name, version)
 
     # Download the completezip
-    command = ['wget', '-O', filename, url]
-    process = subprocess.Popen(command,
-                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                               cwd=working_dir)
-    logger.debug("Running: " + ' '.join(command))
-    stdout, stderr = process.communicate()
-    if process.returncode != 0:
-        raise RuntimeError(stdout + "\n\n" + stderr)
+    response = requests.get(url)
+    if response.status_code != 200:
+        raise RuntimeError("Could not download file at '{0}' with "
+                           "response ({1}):\n{2}".format(url,
+                                                         response.status_code,
+                                                         response.text))
+    filepath = os.path.join(working_dir, filename)
+    with open(filepath, 'wb') as f:
+        f.write(response.content)
 
-    # Unpack the zip
-    command = ['unzip', filename]
-    process = subprocess.Popen(command,
-                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                               cwd=working_dir)
-    logger.debug("Running: " + ' '.join(command))
-    stdout, stderr = process.communicate()
-    if process.returncode != 0:
-        raise RuntimeError(stdout + "\n\n" + stderr)
-
-    # The unpacked directory name does not always match the zip file
-    #   name. In addition, the version may differ if 'latest' is used.
-    #   Therefore, we must discover the name by looking at the
-    #   contents of the directory. This is simple enough, because
-    #   there should only ever be two items in the directory at this
-    #   time.
-    unpacked_filename = [d for d in os.listdir(working_dir)
-                         if not d.endswith('.zip')][0]
+    unpacked_file_list = unpack_zip(filename, working_dir)
+    unpacked_filename = unpacked_file_list[0]
     return unpacked_filename

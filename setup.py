@@ -8,10 +8,11 @@ README = os.path.join(here, 'README.rst')
 install_requirements = [
     'pybit',
     'jsonpickle',
+    'requests',
     ]
 test_requirements = []
 # These requirements are specifically for the legacy module.
-legacy_requirements = ['requests']
+legacy_requirements = []
 
 setup(
     name='rbit-ext',
