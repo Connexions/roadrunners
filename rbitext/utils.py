@@ -35,7 +35,7 @@ def unpack_zip(file, working_dir=None):
 
     return [x for x in os.listdir(working_dir) if x not in directory_listing]
 
-def get_completezip(pkg_name, version, base_uri, working_dir):
+def get_completezip(pkg_name, version, base_uri, working_dir, unpack=True):
     """"Acquire the collection data from a (Plone based) Connexions
     repository in the completezip format.
 
@@ -57,6 +57,9 @@ def get_completezip(pkg_name, version, base_uri, working_dir):
     with open(filepath, 'wb') as f:
         f.write(response.content)
 
-    unpacked_file_list = unpack_zip(filename, working_dir)
-    unpacked_filename = unpacked_file_list[0]
-    return unpacked_filename
+    if unpack is True:
+        unpacked_file_list = unpack_zip(filename, working_dir)
+        unpacked_filename = unpacked_file_list[0]
+        return unpacked_filename
+    else:
+        return os.path.join(working_dir, filename)
