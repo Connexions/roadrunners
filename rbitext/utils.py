@@ -22,7 +22,9 @@ def unpack_zip(file, working_dir=None):
     #   from those that were previously there.
     directory_listing = os.listdir(working_dir)
 
-    command = ['unzip', file]
+    command = ['unzip', '-n', file]
+    if working_dir is not None:
+        command.extend(['-d', working_dir])
     process = subprocess.Popen(command,
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                cwd=working_dir)
