@@ -168,8 +168,8 @@ def make_offlinezip(build_request, settings={}):
 
     shutil.copy2(offlinezip_result_filepath, output_dir)
     shutil.copy2(epub_result_filepath, output_dir)
-    artifacts = [os.path.join(offlinezip_result_filename, output_dir),
-                 os.path.join(epub_result_filename, output_dir),
+    artifacts = [os.path.join(output_dir, offlinezip_result_filename),
+                 os.path.join(output_dir, epub_result_filename),
                  ]
 
     # Remove the temporary build directory
