@@ -17,11 +17,11 @@ import shutil
 import jsonpickle
 import requests
 
-from rbit import Blocked
+import rbit
 from .utils import logger, get_completezip, unpack_zip
 
 
-def make_completezip(message, set_status, settings={}):
+def make_completezip(build_request, settings={}):
     """\
     Creates a completezip by calling the (plone based) repository.
 
@@ -40,13 +40,6 @@ def make_completezip(message, set_status, settings={}):
     content_path = settings.get('path-to-content', '/content')
     content_path = content_path.rstrip('/')
 
-    # Start the building sequence by updating the build's status.
-    build_request = jsonpickle.decode(message)
-    build_request.stamp_request()
-    timestamp = build_request.get_buildstamp()
-    status_message = "Starting job, timestamp: {0}".format(timestamp)
-    set_status('Building', status_message)
-
     # Acquire the collection's data in a collection directory format.
     id = build_request.get_package()
     version = build_request.get_version()
@@ -56,23 +49,25 @@ def make_completezip(message, set_status, settings={}):
     # Make a request to the repository to create the completezip.
     url = "{0}{1}/{2}/{3}/create_complete".format(base_uri, content_path,
                                                   id, version)
-    resp = requests.get(url, auth=(username, password))
+    try:
+        resp = requests.get(url, auth=(username, password))
+    except requests.exceptions.ConnectionError as exc:
+        raise rbit.Failed("Issue connecting to the depend service at "
+                          "{0}".format(url))
 
     if resp.status_code != 200:
-        set_status('Failed', resp)
-        return
+        raise rbit.Failed(resp)
 
     # Write out the results to the filesystem.
     result_filename = "{0}-{1}.complete.zip".format(id, version)
     output_filepath = os.path.join(output_dir, result_filename)
-    set_status('Building', "Placing file a location: " + output_filepath)
     with open(output_filepath, 'wb') as f:
         f.write(resp.content)
 
-    set_status('Done')
+    return [output_filepath]
 
 
-def make_offlinezip(message, set_status, settings={}):
+def make_offlinezip(build_request, settings={}):
     """\
     Creates an offlinezip using the complete zip (dependency).
 
@@ -97,13 +92,6 @@ def make_offlinezip(message, set_status, settings={}):
     cnxbuildout_dir = settings['cnx-buildout-dir']
     python_env = settings.get('python-env', None)
 
-    # Start the building sequence by updating the build's status.
-    build_request = jsonpickle.decode(message)
-    build_request.stamp_request()
-    timestamp = build_request.get_buildstamp()
-    status_message = "Starting job, timestamp: {0}".format(timestamp)
-    set_status('Building', status_message)
-
     # Acquire the collection's data in a collection directory format.
     id = build_request.get_package()
     version = build_request.get_version()
@@ -126,7 +114,6 @@ def make_offlinezip(message, set_status, settings={}):
                                                    base_uri, build_dir,
                                                    unpack=False)
         except Exception as exc:
-            traceback.print_exc(exc)
             raise Blocked("Issues is probably that the complete zip "
                           "does not exist yet.")
     else:
@@ -160,7 +147,7 @@ def make_offlinezip(message, set_status, settings={}):
                     epub_result_filename,
                     oerexports_dir,
                     ])
-    set_status('Building', "Running: " + ' '.join(command))
+    logger.debug("Running: " + ' '.join(command))
     process = subprocess.Popen(' '.join(command),
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                cwd=oerexports_dir, shell=True,
@@ -168,11 +155,10 @@ def make_offlinezip(message, set_status, settings={}):
     stdout, stderr = process.communicate()
     if process.returncode != 0:
         # Something went wrong...
-        set_status('Failed', stderr)
-        return
+        raise rbit.Failed(stderr)
     else:
         msg = "Offline zip created, moving contents to final destination..."
-        set_status('Building', msg)
+        logger.debug(msg)
 
     # Write out the results to the filesystem.
     offlinezip_output_filepath = os.path.join(output_dir,
@@ -180,13 +166,13 @@ def make_offlinezip(message, set_status, settings={}):
     epub_output_filepath = os.path.join(output_dir,
                                         epub_result_filename)
 
-    msg = "Placing offline at location: {0}\nPlacing epub at location: {1}"
-    set_status('Building', msg.format(offlinezip_output_filepath,
-                                      epub_output_filepath))
     shutil.copy2(offlinezip_result_filepath, output_dir)
     shutil.copy2(epub_result_filepath, output_dir)
+    artifacts = [os.path.join(offlinezip_result_filename, output_dir),
+                 os.path.join(epub_result_filename, output_dir),
+                 ]
 
     # Remove the temporary build directory
     shutil.rmtree(build_dir)
 
-    set_status('Done')
+    return artifacts
