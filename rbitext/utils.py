@@ -14,6 +14,8 @@ import logging
 import subprocess
 import requests
 
+__all__ = ('logger', 'unpack_zip', 'get_completezip',)
+
 logger = logging.getLogger('rbit-ext')
 
 def unpack_zip(file, working_dir=None):
