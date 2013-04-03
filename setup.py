@@ -22,7 +22,7 @@ setup(
     description='Rhaptos PyBit client implementation',
     long_description=open(README).read(),
     url='https://github.com/connexions/rbit',
-    license='GPL2',  # See also LICENSE.txt
+    license='AGPL',  # See also LICENSE.txt
     packages=find_packages(),
     include_package_data=True,
     install_requires=install_requirements,

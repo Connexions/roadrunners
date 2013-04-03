@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
+# ###
+# Copyright (c) 2013, Rice University
+# This software is subject to the provisions of the GNU Affero General
+# Public License version 3 (AGPLv3).
+# See LICENCE.txt for details.
+# ###
 """\
-rbit extensions for producing legacy files on the cnx plone repo codebase.
+rbit runners that interfaces with the legacy (plone based) repository.
 
-Author: Michael Mulich
-Copyright (c) 2012 Rice University
-
-This software is subject to the provisions of the GNU Lesser General
-Public License Version 2.1 (LGPL).  See LICENSE.txt for details.
 """
 import os
 import sys
@@ -19,6 +20,12 @@ import requests
 
 import rbit
 from .utils import logger, get_completezip, unpack_zip
+
+__all__ = (
+    'make_completezip',
+    'make_offlinezip',
+    'make_print',
+    )
 
 
 def make_completezip(build_request, settings={}):
