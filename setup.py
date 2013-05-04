@@ -6,9 +6,12 @@ here = os.path.abspath(os.path.dirname(__file__))
 README = os.path.join(here, 'README.rst')
 
 install_requirements = [
-    'pybit',
-    'jsonpickle',
     'requests',
+    # PyBit and dependencies
+    'pybit',
+    # 'psycopg2',
+    # 'amqplib',
+    'jsonpickle',
     ]
 test_requirements = []
 # These requirements are specifically for the legacy module.
