@@ -6,7 +6,7 @@
 # See LICENCE.txt for details.
 # ###
 """\
-rbit runners that interfaces with the legacy (plone based) repository.
+road runners that interfaces with the legacy (plone based) repository.
 
 """
 import os
@@ -18,7 +18,7 @@ import shutil
 import jsonpickle
 import requests
 
-import rbit
+import coyote
 from .utils import logger, get_completezip, unpack_zip
 
 __all__ = (
@@ -59,11 +59,11 @@ def make_completezip(build_request, settings={}):
     try:
         resp = requests.get(url, auth=(username, password))
     except requests.exceptions.ConnectionError as exc:
-        raise rbit.Failed("Issue connecting to the depend service at "
+        raise coyote.Failed("Issue connecting to the depend service at "
                           "{0}".format(url))
 
     if resp.status_code != 200:
-        raise rbit.Failed(resp)
+        raise coyote.Failed(resp)
 
     # Write out the results to the filesystem.
     result_filename = "{0}-{1}.complete.zip".format(id, version)
@@ -162,7 +162,7 @@ def make_offlinezip(build_request, settings={}):
     stdout, stderr = process.communicate()
     if process.returncode != 0:
         # Something went wrong...
-        raise rbit.Failed(stderr)
+        raise coyote.Failed(stderr)
     else:
         msg = "Offline zip created, moving contents to final destination..."
         logger.debug(msg)
@@ -185,8 +185,7 @@ def make_offlinezip(build_request, settings={}):
     return artifacts
 
 def make_print(build_request, settings={}):
-    """rbit extension to interface with the Products.RhaptosPrint.printing
-    Makefile.
+    """Interface with the Products.RhaptosPrint.printing Makefile.
 
     Available settings:
 
@@ -244,7 +243,7 @@ def make_print(build_request, settings={}):
                                cwd=cwd)
     stdout, stderr = process.communicate()
     if process.returncode != 0:
-        raise rbit.Failed(stderr)
+        raise coyote.Failed(stderr)
     else:
         msg = "PDF created, moving contents to final destination..."
         logger.debug(msg)

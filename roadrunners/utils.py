@@ -16,7 +16,7 @@ import requests
 
 __all__ = ('logger', 'unpack_zip', 'get_completezip',)
 
-logger = logging.getLogger('rbit-ext')
+logger = logging.getLogger('roadrunners')
 
 def unpack_zip(file, working_dir=None):
     """Unpacks a zip file and returns the contents file path."""
