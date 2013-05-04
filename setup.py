@@ -2,7 +2,7 @@
 """
 Copyright (C) 2013 Rice University
 
-This software is subject to the provisions of the GNU AFFERO GENERAL PUBLIC LICENSE Version 3.0 (AGPL).  
+This software is subject to the provisions of the GNU AFFERO GENERAL PUBLIC LICENSE Version 3.0 (AGPL).
 See LICENSE.txt for details.
 """
 
@@ -22,13 +22,12 @@ test_requirements = []
 legacy_requirements = []
 
 setup(
-    name='rbit-ext',
+    name='roadrunners',
     version='1.0',
     author="Connexions/Rhaptos Team",
     author_email="info@cnx.org",
-    description='Rhaptos PyBit client implementation',
     long_description=open(README).read(),
-    url='https://github.com/connexions/rbit',
+    url='https://github.com/connexions/roadrunners',
     license='AGPL',  # See also LICENSE.txt
     packages=find_packages(),
     include_package_data=True,
