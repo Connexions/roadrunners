@@ -16,12 +16,13 @@ import shutil
 import tempfile
 import jsonpickle
 
+import coyote
 from . import utils
 from .utils import logger
 
 
-def make_epub(message, set_status, settings={}):
-    """rbit extension to interface with the oer.exports epub code.
+def make_epub(build_request, settings={}):
+    """Interface with the oer.exports epub code.
 
     Available settings:
 
@@ -33,13 +34,6 @@ def make_epub(message, set_status, settings={}):
     python_executable = settings.get('python', sys.executable)
     oerexports_dir = settings['oer.exports-dir']
     output_dir = settings['output-dir']
-
-    # Start the building sequence by updating the build's status.
-    build_request = jsonpickle.decode(message)
-    build_request.stamp_request()
-    timestamp = build_request.get_buildstamp()
-    status_message = "Starting job, timestamp: {0}".format(timestamp)
-    set_status('Building', status_message)
 
     # Create a temporary directory to work in...
     build_dir = tempfile.mkdtemp()
@@ -71,25 +65,23 @@ def make_epub(message, set_status, settings={}):
                '-e', os.path.join(oerexports_dir, 'xsl', 'dbk2epub.xsl'),
                '-o', result_filepath,
                ]
-    set_status('Building', "Running: " + ' '.join(command))
+    logger.debug("Running: " + ' '.join(command))
     process = subprocess.Popen(command,
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                cwd=build_dir)
     stdout, stderr = process.communicate()
     if process.returncode != 0:
         # Something went wrong...
-        set_status('Failed', stderr)
-        return
+        raise coyote.Failed("Unknown issue: \n" + stderr)
     else:
         msg = "PDF created, moving contents to final destination..."
-        set_status('Building', msg)
+        logger.debug(msg)
 
     # Move the file to it's final destination.
     shutil.copy2(result_filepath, output_dir)
     output_filepath = os.path.join(output_dir, result_filename)
-    set_status('Building', "Placing file a location: " + output_filepath)
 
     # Remove the temporary build directory
     shutil.rmtree(build_dir)
 
-    set_status('Done')
+    return [output_filepath]

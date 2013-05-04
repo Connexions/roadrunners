@@ -16,11 +16,12 @@ import shutil
 import tempfile
 import jsonpickle
 
+import coyote
 from . import utils
 from .utils import logger
 
 
-def make_pdf(message, set_status, settings={}):
+def make_pdf(build_request, settings={}):
     """rbit extension to interface with the oer.exports epub code.
 
     Available settings:
@@ -35,13 +36,6 @@ def make_pdf(message, set_status, settings={}):
     oerexports_dir = settings['oer.exports-dir']
     output_dir = settings['output-dir']
     pdf_generator_executable = settings['pdf-generator']
-
-    # Start the building sequence by updating the build's status.
-    build_request = jsonpickle.decode(message)
-    build_request.stamp_request()
-    timestamp = build_request.get_buildstamp()
-    status_message = "Starting job, timestamp: {0}".format(timestamp)
-    set_status('Building', status_message)
 
     # Create a temporary directory to work in...
     build_dir = tempfile.mkdtemp()
@@ -73,25 +67,24 @@ def make_pdf(message, set_status, settings={}):
                '-s', os.path.join(oerexports_dir, 'ccap-physics'),
                result_filepath,
                ]
-    set_status('Building', "Running: " + ' '.join(command))
+    logger.debug("Running: " + ' '.join(command))
     process = subprocess.Popen(command,
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                cwd=build_dir)
     stdout, stderr = process.communicate()
     if process.returncode != 0:
         # Something went wrong...
-        set_status('Failed', stderr)
+        raise coyote.Failed("Unknown issue: \n" + stderr)
         return
     else:
         msg = "PDF created, moving contents to final destination..."
-        set_status('Building', msg)
+        logger.debug(msg)
 
     # Move the file to it's final destination.
     shutil.copy2(result_filepath, output_dir)
     output_filepath = os.path.join(output_dir, result_filename)
-    set_status('Building', "Placing file a location: " + output_filepath)
 
     # Remove the temporary build directory
     shutil.rmtree(build_dir)
 
-    set_status('Done')
+    return [output_filepath]
