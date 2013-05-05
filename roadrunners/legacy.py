@@ -63,7 +63,8 @@ def make_completezip(build_request, settings={}):
                           "{0}".format(url))
 
     if resp.status_code != 200:
-        raise coyote.Failed(resp)
+        raise coyote.Failed("Response code is '{}' for '{}'.".format(
+                resp.status_code, resp.url))
 
     # Write out the results to the filesystem.
     result_filename = "{0}-{1}.complete.zip".format(id, version)
