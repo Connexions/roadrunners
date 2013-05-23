@@ -1,7 +1,7 @@
 Road Runners
 ============
 
-There be road runners in this neck of the wood...
+There be road runners in this neck of the ... desert.
 
 For further information see the ``docs`` directory of this package.
 
