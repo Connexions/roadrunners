@@ -14,7 +14,7 @@ import logging
 import subprocess
 import requests
 
-__all__ = ('logger', 'unpack_zip', 'get_completezip',)
+__all__ = ('logger', 'unpack_zip', 'get_completezip', 'get_offlinezip',)
 
 logger = logging.getLogger('roadrunners')
 
@@ -38,7 +38,7 @@ def unpack_zip(file, working_dir=None):
 
     return [x for x in os.listdir(working_dir) if x not in directory_listing]
 
-def get_completezip(pkg_name, version, base_uri, working_dir, unpack=True):
+def get_zip(pkg_name, version, base_uri, working_dir, unpack=True, zipname='complete'):
     """"Acquire the collection data from a (Plone based) Connexions
     repository in the completezip format.
 
@@ -46,8 +46,8 @@ def get_completezip(pkg_name, version, base_uri, working_dir, unpack=True):
     the unpacked contents can be discovered.
 
     """
-    filename = "{0}-{1}.complete.zip".format(pkg_name, version)
-    url = '{0}/content/{1}/{2}/complete'.format(base_uri, pkg_name, version)
+    filename = "{0}-{1}.{2}.zip".format(pkg_name, version, zipname)
+    url = '{0}/content/{1}/{2}/{3}'.format(base_uri, pkg_name, version, zipname)
 
     # Download the completezip
     response = requests.get(url)
@@ -66,3 +66,10 @@ def get_completezip(pkg_name, version, base_uri, working_dir, unpack=True):
         return unpacked_filename
     else:
         return os.path.join(working_dir, filename)
+
+
+def get_completezip(pkg_name, version, base_uri, working_dir, unpack=True, zipname='complete'):
+    return get_zip(pkg_name, version, base_uri, working_dir, unpack, zipname)
+
+def get_offlinezip(pkg_name, version, base_uri, working_dir, unpack=True, zipname='offline'):
+    return get_zip(pkg_name, version, base_uri, working_dir, unpack, zipname)

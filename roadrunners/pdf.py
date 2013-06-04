@@ -15,6 +15,7 @@ import subprocess
 import shutil
 import tempfile
 import jsonpickle
+from lxml import etree
 
 import coyote
 from . import utils
@@ -45,8 +46,10 @@ def make_pdf(build_request, settings={}):
     pkg_name = build_request.get_package()
     version = build_request.get_version()
     base_uri = build_request.transport.uri
-    collection_dir = utils.get_completezip(pkg_name, version, base_uri,
+    collection_dir = utils.get_offlinezip(pkg_name, version, base_uri,
                                            build_dir)
+    collection_dir = os.path.join(build_dir, collection_dir, 'content')
+
     # FIXME We need to grab the version from the unpacked directory
     #       name because 'latest' is only a symbolic name that will
     #       not be used in the resulting filename.
@@ -55,6 +58,14 @@ def make_pdf(build_request, settings={}):
         #   <id>_<version>_complete, we can parse the version.
         version = collection_dir.split('_')[1]
 
+    #Extract the print-style from the collection.xml
+    printstyle_xsl = os.path.join(oerexports_dir,'xsl','collxml-print-style.xsl')
+    collxml_path = os.path.join(collection_dir,'collection.xml')
+    xslt = etree.XSLT(etree.parse(printstyle_xsl))
+    collxml = etree.parse(collxml_path)
+    printstyle = str(xslt(collxml)).strip()
+    
+    
     # Run the oer.exports script against the collection data.
     build_script = os.path.join(oerexports_dir, 'collectiondbk2pdf.py')
     result_filename = '{0}-{1}.pdf'.format(build_request.get_package(),
@@ -64,7 +75,7 @@ def make_pdf(build_request, settings={}):
                '-p', pdf_generator_executable,
                '-d', collection_dir,
                # XXX We need a place to input this option...
-               '-s', os.path.join(oerexports_dir, 'ccap-physics'),
+               '-s', printstyle,
                result_filepath,
                ]
     logger.debug("Running: " + ' '.join(command))
