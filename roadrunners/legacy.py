@@ -25,7 +25,51 @@ __all__ = (
     'make_completezip',
     'make_offlinezip',
     'make_print',
+    'make_collxml',
     )
+
+
+def make_collxml(build_request, settings={}):
+    """\
+    Creates a completezip by calling the (plone based) repository.
+
+    Available settings:
+
+    - **output-dir** - Directory where the produced file is stuck.
+    - **path-to-content** - Useful for communication without a web server
+      in front of zope. (default: /content)
+
+    """
+    output_dir = settings['output-dir']
+    content_path = settings.get('path-to-content', '/content')
+    content_path = content_path.rstrip('/')
+
+    # Acquire the collection's data in a collection directory format.
+    id = build_request.get_package()
+    version = build_request.get_version()
+    # This should be something like 'http://cnx.org:80'.
+    base_uri = build_request.transport.uri.rstrip('/')
+
+    # Make a request to the repository to create the completezip.
+    url = "{0}{1}/{2}/{3}/source_create".format(base_uri, content_path,
+                                                  id, version)
+    try:
+        resp = requests.get(url)
+    except requests.exceptions.ConnectionError as exc:
+        raise coyote.Failed("Issue connecting to the depend service at "
+                          "{0}".format(url))
+
+    if resp.status_code != 200:
+        raise coyote.Failed("Response code is '{}' for '{}'.".format(
+                resp.status_code, resp.url))
+
+    # Write out the results to the filesystem.
+    result_filename = "{0}-{1}.xml".format(id, version)
+    output_filepath = os.path.join(output_dir, result_filename)
+    with open(output_filepath, 'wb') as f:
+        f.write(resp.content)
+
+    return [output_filepath]
 
 
 def make_completezip(build_request, settings={}):
