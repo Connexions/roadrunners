@@ -205,19 +205,10 @@ def make_print(build_request, settings={}):
     status_message = "Starting job, timestamp: {0}".format(timestamp)
     logger.debug(status_message)
 
-    # Clean up the 'shared' environment before trying to build.
-    # FIXME This is a 'shared' environment, which means we can't run
-    #       more than one job at a time.
-    process = subprocess.Popen(['make', 'clear'],
-                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                               cwd=cwd)
-    stdout, stderr = process.communicate()
-    # At this time we don't really care if cleanup worked or not.
-    # if process.returncode != 0:
-    #     # Something went wrong...
-    #     message = '\n\n'.join(["Cleanup failed:", stderr, stdout])
-    #     set_status('Failed', message)
-    #     return
+    # Create a temporary directory to work in...
+    build_dir = tempfile.mkdtemp()
+    logger.debug("Working in '{0}'.".format(build_dir))
+
 
     # Run the makefile from RhaptosPrint that will create the PDF
     id = build_request.get_package()
@@ -225,23 +216,37 @@ def make_print(build_request, settings={}):
     pdf_filename = "{}.pdf".format(id)
     is_module = id.startswith('m')
     make_file = is_module and 'module_print.mak' or 'course_print.mak'
-    command = ['make', '-f', make_file, pdf_filename]
+    command = ' '.join(['make', '-e', '-f', make_file, pdf_filename])
+
+    # put makefile in place
+    shutil.copy2(os.path.join(print_dir, make_file), build_dir)
+
     # Override various make variables.
+    myenv = dict(os.environ)
+
     host = build_request.transport.uri
     host = '/'.join(host.split('/')[:3])  # just the {protocol}://{hostname}
-    overrides = [
-        python_executable and "PYTHON=" + python_executable or None,
-        print_dir and "PRINT_DIR=" + print_dir or None,
-        host and "HOST=" + host or None,
-        "VERSION=" + build_request.job.packageinstance.package.version,
-        ]
-    overrides = [c for c in overrides if c]  # Remove the None values.
-    command.extend(overrides)
 
-    logger.debug("Running command: " + ' '.join(command))
+    #set up makefile variable overrides as envionment variables
+    overrides = {}
+    overrides['VERSION'] = build_request.job.packageinstance.package.version
+
+    if python_executable:
+        overrides['PYTHON'] = python_executable.encode('utf-8')
+    if print_dir:
+        overrides['PRINT_DIR'] = print_dir.encode('utf-8')
+
+    if host:
+        overrides['HOST'] = host.encode('utf-8')
+
+    import pdb; pdb.set_trace()
+
+    logger.debug("Running command: " + command + " environ: " + str(overrides))
+    myenv.update(overrides)
     process = subprocess.Popen(command,
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                               cwd=cwd)
+                               cwd=build_dir, shell=True, env=myenv, 
+                               executable='/bin/bash')
     stdout, stderr = process.communicate()
     if process.returncode != 0:
         raise coyote.Failed(stderr)
@@ -252,9 +257,13 @@ def make_print(build_request, settings={}):
 
     # Rename and move the resulting document to the defined location.
     new_pdf_filename = "{}-{}.pdf".format(id, version)
-    os.rename(os.path.join(cwd, pdf_filename),
-              os.path.join(cwd, new_pdf_filename))
+    os.rename(os.path.join(build_dir, pdf_filename),
+              os.path.join(build_dir, new_pdf_filename))
     pdf_filename = new_pdf_filename
-    shutil.copy2(os.path.join(cwd, pdf_filename), output_dir)
+    shutil.copy2(os.path.join(build_dir, pdf_filename), output_dir)
+
+    # Remove the temporary build directory
+    shutil.rmtree(build_dir)
+
 
     return [os.path.join(output_dir, pdf_filename)]
