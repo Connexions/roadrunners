@@ -283,8 +283,6 @@ def make_print(build_request, settings={}):
     if host:
         overrides['HOST'] = host.encode('utf-8')
 
-    import pdb; pdb.set_trace()
-
     logger.debug("Running command: " + command + " environ: " + str(overrides))
     myenv.update(overrides)
     process = subprocess.Popen(command,
