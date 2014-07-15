@@ -1,0 +1,34 @@
+# Roadrunners
+language: python
+python:
+    - "2.7"
+addons:
+    postgresql: 9.3
+before_install:
+    - sudo apt-get update
+    - sudo apt-get install texlive-full
+    - sudo apt-get install xsltproc
+    - sudo apt-get install python-imaging
+    # Install pybit
+    - git clone https://github.com/nicholasdavidson/pybit.git
+    - cd pybit && python setup.py develop && cd ..
+    # Install coyote
+    - git clone https://github.com/Connexions/coyote.git
+    - cd coyote && python setup.py develop && cd ..
+    # Clone printing
+    - git clone https://github.com/Rhaptos/Products.RhaptosPrint.git
+    # Clone oer.exports and cnx-buildout
+    # - git clone https://github.com/Connexions/oer.exports.git
+    - git clone https://github.com/Rhaptos/cnx-buildout.git
+    # Install coverage
+    - pip install coverage
+    - pip install coveralls
+install:
+    - python setup.py develop
+script:
+    - coverage run --source=roadrunners setup.py test
+after_success:
+    # Report test coverage
+    - coveralls
+notifications:
+    email: false    

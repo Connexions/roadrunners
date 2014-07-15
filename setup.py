@@ -12,8 +12,11 @@ install_requirements = [
     # 'psycopg2',
     # 'amqplib',
     'jsonpickle',
+    'Pillow',
     ]
-test_requirements = []
+test_requirements = (
+    'mock',
+    )
 # These requirements are specifically for the legacy module.
 legacy_requirements = []
 
@@ -28,10 +31,8 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=install_requirements,
-    extras_require={
-        'tests': test_requirements,
-        'legacy': legacy_requirements,
-        },
+    tests_require = test_requirements,
     entry_points = """\
     """,
+    test_suite='roadrunners.tests',
     )
