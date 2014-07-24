@@ -9,6 +9,9 @@ before_install:
     - sudo apt-get install texlive-full
     - sudo apt-get install xsltproc
     - sudo apt-get install python-imaging
+    # lxml
+    - sudo apt-get install zlib1g-dev libxml2-dev libxslt1-dev
+    - pip install lxml
     # Install pybit
     - git clone https://github.com/nicholasdavidson/pybit.git
     - cd pybit && python setup.py develop && cd ..
@@ -20,6 +23,9 @@ before_install:
     # Clone oer.exports and cnx-buildout
     # - git clone https://github.com/Connexions/oer.exports.git
     - git clone https://github.com/Rhaptos/cnx-buildout.git
+    # get and install prince pdf generator
+    - wget http://www.princexml.com/download/prince_9.0-5_ubuntu12.04_amd64.deb
+    - sudo dpkg -i prince_9.0-5_ubuntu12.04_amd64.deb
     # Install coverage
     - pip install coverage
     - pip install coveralls

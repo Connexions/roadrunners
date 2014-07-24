@@ -34,9 +34,9 @@ class RoadrunnerUtilTests(unittest.TestCase):
             with open(test_data("test_zip.zip"), 'rb') as file_object:
                 mock_response.content = file_object.read()
             return mock_response
-        get_patcher = mock.patch('roadrunners.legacy.requests.get', mocked_get)
-        get_patcher.start()
-        self.addCleanup(get_patcher.stop)
+        self.get_patcher = mock.patch('roadrunners.legacy.requests.get', mocked_get)
+        self.get_patcher.start()
+        self.addCleanup(self.get_patcher.stop)
     
     def tearDown(self):
         # Destroy the temporary testing directory even if tests fail
@@ -55,7 +55,7 @@ class RoadrunnerUtilTests(unittest.TestCase):
         self.assertTrue("col10642-1.2.pdf" in directory_listing)
         self.assertTrue("file.txt" in directory_listing)
         
-    def test_unpack_zip_workingdir(self): 
+    def test_unpack_zip(self): 
         unpacked_file = utils.unpack_zip(test_data("test_zip.zip"), self.test_dir)
         self.verify_unpack(unpacked_file)
 
@@ -82,4 +82,23 @@ class RoadrunnerUtilTests(unittest.TestCase):
         self.assertEqual(len(contents), 2)
         self.assertTrue('file.txt' in contents)
         self.assertTrue('col10642-1.2.pdf' in contents)
+        
+    # Web dependent tests to check that completezip and offline zip
+    # have the correct formats
+    
+    def test_get_complete_zip(self):
+        self.get_patcher.stop()
+        zip = utils.get_completezip('col10642', '1.2', 'http://cnx.org', self.test_dir)
+        self.get_patcher.start()
+        self.assertTrue('col10642_1.2_complete' in os.listdir(self.test_dir))
+        contents = os.listdir(os.path.join(self.test_dir,'col10642_1.2_complete'))
+        self.assertTrue('collection.xml' in contents)
+    
+    def test_get_offline_zip(self):
+        self.get_patcher.stop()
+        zip = utils.get_offlinezip('col10642', '1.2', 'http://cnx.org', self.test_dir)
+        self.get_patcher.start()
+        self.assertTrue('col10642_1.2_complete' in os.listdir(self.test_dir))
+        contents_path = os.path.join(self.test_dir, 'col10642_1.2_complete', 'content')
+        self.assertTrue('collection.xml' in os.listdir(contents_path))
 
