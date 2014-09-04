@@ -26,6 +26,21 @@ from . import test_data
 from .. import pdf
 from . import pdfiinfo
 
+# Get settings from the ini file
+config = RawConfigParser()
+if hasattr('test.ini', 'read'):
+    config.readfp('test.ini')
+else:
+    with open('test.ini', 'r') as f:
+        config.readfp(f)
+
+def config_to_dict(c):
+    result = {}
+    for section in c.sections():
+        result[section] = dict(c.items(section))
+    return result
+
+settings = config_to_dict(config)['runner:pdf']
 
 class PdfTests(unittest.TestCase):
     
@@ -35,8 +50,8 @@ class PdfTests(unittest.TestCase):
         url2 = 'http://cnx.org/content/col10642/latest/'
         self.assertTrue(url1 in url or url2 in url)
         if auth:
-            username = self.settings['runner:completezip']['username']
-            password = self.settings['runner:completezip']['password']
+            username = settings['runner:completezip']['username']
+            password = settings['runner:completezip']['password']
             self.assertEquals(auth, (username, password))
         # Create the mock response
         mock_response = mock.Mock()
@@ -53,23 +68,7 @@ class PdfTests(unittest.TestCase):
         new_name = re.sub('_', 'g', self.test_output)
         os.rename(self.test_output, new_name)
         self.test_output = new_name
-         
-        # Get settings from the ini file
-        config = RawConfigParser()
-        if hasattr('test.ini', 'read'):
-            config.readfp('test.ini')
-        else:
-            with open('test.ini', 'r') as f:
-                config.readfp(f)
-
-        def config_to_dict(c):
-            result = {}
-            for section in c.sections():
-                result[section] = dict(c.items(section))
-            return result
-
-        self.settings = config_to_dict(config)['runner:pdf']
-        self.settings['output-dir'] = self.test_output
+        settings['output-dir'] = self.test_output
 
         # Mock the build request
         self.mock_request = mock.Mock()
@@ -122,10 +121,11 @@ class PdfTests(unittest.TestCase):
         # see if the strings are equal
         self.assertEquals(replace_string, replace_string2)
     
+    @unittest.skipIf(not os.path.exists(settings['oer.exports-dir']), 'need oer.exports')
     def test_make_pdf(self):
         
         with mock.patch('roadrunners.utils.requests.get', self.mocked_get_offlinezip):
-            output_path = pdf.make_pdf(self.mock_request, self.settings)
+            output_path = pdf.make_pdf(self.mock_request, settings)
         self.assertEquals(os.path.join(self.test_output, 'col10642-1.2.pdf'), output_path[0])
         self.assertEquals(len(output_path), 1)
         
@@ -140,12 +140,13 @@ class PdfTests(unittest.TestCase):
         self.verify_pdf(expect_pdf, test_pdf, wanted_html, got_html, title)
         PdfTests.patcher.start()
     
+    @unittest.skipIf(not os.path.exists(settings['oer.exports-dir']), 'need oer.exports')
     def test_pdf_latest_version(self):
         self.mock_request.get_version.return_value = "latest"
         self.mock_request.job.packageinstance.package.version = "latest"
 
         with mock.patch('roadrunners.utils.requests.get', self.mocked_get_offlinezip):
-            output_path = pdf.make_pdf(self.mock_request, self.settings)
+            output_path = pdf.make_pdf(self.mock_request, settings)
         self.assertEquals(os.path.join(self.test_output, 'col10642-1.2.pdf'), output_path[0])
         self.assertEquals(len(output_path), 1)
         
