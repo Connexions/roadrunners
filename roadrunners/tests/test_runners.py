@@ -26,15 +26,31 @@ from .. import epub
 from .. import legacy
 from .. import utils
 
+config = RawConfigParser()
+if hasattr('test.ini', 'read'):
+    config.readfp('test.ini')
+else:
+    with open('test.ini', 'r') as f:
+        config.readfp(f)
 
-class LegacyTests(unittest.TestCase):
+def config_to_dict(c):
+    result = {}
+    for section in c.sections():
+        result[section] = dict(c.items(section))
+    return result
+
+settings = config_to_dict(config)
+
+class RoadrunnerTests(unittest.TestCase):
     # Mock utils get_completezip so that necessary files are returned
     def mocked_get_completezip(self, url, auth=None):
         # Make sure the url and authorization are good
-        self.assertTrue('http://cnx.org/content/col10642/1.2/' in url)
+        url1 = 'http://cnx.org/content/col10642/1.2/'
+        url2 = 'http://cnx.org/content/col10642/latest/'
+        self.assertTrue(url1 in url or url2 in url)
         if auth:
-            username = self.settings['runner:completezip']['username']
-            password = self.settings['runner:completezip']['password']
+            username = settings['runner:completezip']['username']
+            password = settings['runner:completezip']['password']
             self.assertEquals(auth, (username, password))
         # Create the mock response
         mock_response = mock.Mock()
@@ -46,23 +62,7 @@ class LegacyTests(unittest.TestCase):
     def setUp(self):
         # Create a temporary directory to work in
         self.test_output = tempfile.mkdtemp()
-        
-        # Get settings from the ini file
-        config = RawConfigParser()
-        if hasattr('test.ini', 'read'):
-            config.readfp('test.ini')
-        else:
-            with open('test.ini', 'r') as f:
-                config.readfp(f)
 
-        def config_to_dict(c):
-            result = {}
-            for section in c.sections():
-                result[section] = dict(c.items(section))
-            return result
-
-        self.settings = config_to_dict(config)
-        
         # Mock the build request
         self.mock_request = mock.Mock()
         self.mock_request.get_package.return_value = "col10642"
@@ -74,8 +74,8 @@ class LegacyTests(unittest.TestCase):
             # Make sure the url and authorization are good
             self.assertTrue('http://cnx.org/content/col10642/1.2/' in url)
             if auth:
-                username = self.settings['runner:completezip']['username']
-                password = self.settings['runner:completezip']['password']
+                username = settings['runner:completezip']['username']
+                password = settings['runner:completezip']['password']
                 self.assertEquals(auth, (username, password))
             # Create the mock response
             mock_response = mock.Mock()
@@ -98,18 +98,18 @@ class LegacyTests(unittest.TestCase):
         shutil.rmtree(self.test_output)
         
     def test_make_collxml(self):
-        settings = self.settings['runner:xml']
-        settings['output-dir'] = self.test_output
+        loc_settings = settings['runner:xml']
+        loc_settings['output-dir'] = self.test_output
         
-        output_path = legacy.make_collxml(self.mock_request, settings)
+        output_path = legacy.make_collxml(self.mock_request, loc_settings)
         self.assertEquals(os.path.join(self.test_output, 'col10642-1.2.xml'), output_path[0])
         self.assertEquals(len(output_path), 1)
         
     def test_completezip(self):
-        settings = self.settings['runner:completezip']
-        settings['output-dir'] = self.test_output
+        loc_settings = settings['runner:completezip']
+        loc_settings['output-dir'] = self.test_output
         
-        output_path = legacy.make_completezip(self.mock_request, settings)
+        output_path = legacy.make_completezip(self.mock_request, loc_settings)
         
         # Check that correct thing was returned
         self.assertEquals(len(output_path), 1)
@@ -129,10 +129,15 @@ class LegacyTests(unittest.TestCase):
         self.assertEquals(len(contents), 2)
     
     def test_legacy_print(self):        
-        settings = self.settings['runner:legacy-print']
-        settings['output-dir'] = self.test_output
+        loc_settings = settings['runner:legacy-print']
+        loc_settings['output-dir'] = self.test_output
+        mock_request = mock.Mock()
+        mock_request.get_package.return_value = "col10642"
+        mock_request.get_version.return_value = "1.2"
+        mock_request.transport.uri = "http://legacy.cnx.org"
+        mock_request.job.packageinstance.package.version = "1.2"
         
-        output_path = legacy.make_print(self.mock_request, settings)
+        output_path = legacy.make_print(mock_request, loc_settings)
         
         # Check that correct thing was returned
         self.assertEquals(len(output_path), 1)
@@ -141,51 +146,58 @@ class LegacyTests(unittest.TestCase):
         # Check that file is where it is supposed to be
         self.assertTrue('col10642-1.2.pdf' in os.listdir(self.test_output))
     
+    @unittest.skipIf(not os.path.exists(settings['runner:offlinezip']['oer.exports-dir']), 'need oer.exports')
     def test_offlinezip_existing_completezip(self):
-        
-        get_patcher2 = mock.patch('roadrunners.utils.requests.get', self.mocked_get_completezip)
-        get_patcher2.start()
-        self.addCleanup(get_patcher2.stop)
-        
         # get the settings dictionary
-        settings = self.settings['runner:offlinezip']
-        settings['output-dir'] = self.test_output
+        loc_settings = settings['runner:offlinezip']
+        loc_settings['output-dir'] = self.test_output
         
         # get the completezip and put it where its supposed to be
-        utils.get_completezip("col10642", "1.2", "http://cnx.org", self.test_output, unpack=False)
+        with mock.patch('roadrunners.utils.requests.get', self.mocked_get_completezip):
+            utils.get_completezip("col10642", "1.2", "http://cnx.org", self.test_output, unpack=False)
         
-        path_list = legacy.make_offlinezip(self.mock_request, settings)
+        path_list = legacy.make_offlinezip(self.mock_request, loc_settings)
         self.assertEquals(len(path_list), 2)
         self.assertTrue(os.path.join(self.test_output, 'col10642-1.2.epub') in path_list)
         self.assertTrue(os.path.join(self.test_output, 'col10642-1.2.offline.zip') in path_list)
-        get_patcher2.stop
         
+    @unittest.skipIf(not os.path.exists(settings['runner:offlinezip']['oer.exports-dir']), 'need oer.exports')
     def test_offlinezip_no_completezip(self):
-        get_patcher2 = mock.patch('roadrunners.utils.requests.get', self.mocked_get_completezip)
-        get_patcher2.start()
-        self.addCleanup(get_patcher2.stop)
-        
+
         # get the settings dictionary
-        settings = self.settings['runner:offlinezip']
-        settings['output-dir'] = self.test_output
+        loc_settings = settings['runner:offlinezip']
+        loc_settings['output-dir'] = self.test_output
         
-        path_list = legacy.make_offlinezip(self.mock_request, settings)
+        with mock.patch('roadrunners.utils.requests.get', self.mocked_get_completezip):
+            path_list = legacy.make_offlinezip(self.mock_request, loc_settings)
         self.assertEquals(len(path_list), 2)
         self.assertTrue(os.path.join(self.test_output, 'col10642-1.2.epub') in path_list)
         self.assertTrue(os.path.join(self.test_output, 'col10642-1.2.offline.zip') in path_list)
-        get_patcher2.stop
     
+    @unittest.skipIf(not os.path.exists(settings['runner:epub']['oer.exports-dir']), 'need oer.exports')
     def test_make_epub(self):
-        get_patcher2 = mock.patch('roadrunners.utils.requests.get', self.mocked_get_completezip)
-        get_patcher2.start()
-        self.addCleanup(get_patcher2.stop)
         
         # get the settings dictionary
-        settings = self.settings['runner:epub']
-        settings['output-dir'] = self.test_output
+        loc_settings = settings['runner:epub']
+        loc_settings['output-dir'] = self.test_output
         
-        output_path = epub.make_epub(self.mock_request, settings)
+        with mock.patch('roadrunners.utils.requests.get', self.mocked_get_completezip):
+            output_path = epub.make_epub(self.mock_request, loc_settings)
         self.assertEquals(os.path.join(self.test_output, 'col10642-1.2.epub'), output_path[0])
         self.assertEquals(len(output_path), 1)
-        get_patcher2.stop
+        
+    @unittest.skipIf(not os.path.exists(settings['runner:epub']['oer.exports-dir']), 'need oer.exports')
+    def test_make_epub_latest(self):
     
+        # get the settings dictionary
+        loc_settings = settings['runner:epub']
+        loc_settings['output-dir'] = self.test_output
+        
+        # change the build request to use 'latest' version
+        self.mock_request.get_version.return_value = "latest"
+        self.mock_request.job.packageinstance.package.version = "latest"
+        
+        with mock.patch('roadrunners.utils.requests.get', self.mocked_get_completezip):
+            output_path = epub.make_epub(self.mock_request, loc_settings)
+        self.assertEquals(os.path.join(self.test_output, 'col10642-1.2.epub'), output_path[0])
+        self.assertEquals(len(output_path), 1)
